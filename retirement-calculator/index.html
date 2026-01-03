@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retirement Projection Calculator</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/forms.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>Retirement Projection Calculator</h1>
+                    <p class="subtitle">Monte Carlo simulation for retirement planning</p>
+                </div>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button id="export-btn" class="btn btn-secondary">Export Configuration</button>
+                    <button id="import-btn" class="btn btn-secondary">Import Configuration</button>
+                    <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Section 1: Basic Parameters -->
+        <section id="basic-params" class="card">
+            <h2>Basic Information</h2>
+            <form id="basic-params-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="current-age">Current Age</label>
+                        <input type="number" id="current-age" name="currentAge" min="18" max="100" value="35" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="retirement-age">Retirement Age</label>
+                        <input type="number" id="retirement-age" name="retirementAge" min="18" max="100" value="65" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="current-salary">Annual Salary (for employer match)</label>
+                        <input type="number" id="current-salary" name="currentSalary" min="0" step="1000" value="100000" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inflation-rate">Expected Inflation Rate (%)</label>
+                        <input type="number" id="inflation-rate" name="inflationRate" min="0" max="10" step="0.1" value="2.5" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="return-preset">Market Return Preset</label>
+                        <select id="return-preset" name="returnPreset">
+                            <option value="conservative">Conservative (5% / 12% volatility)</option>
+                            <option value="moderate" selected>Moderate (7% / 15% volatility)</option>
+                            <option value="aggressive">Aggressive (9% / 18% volatility)</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="custom-returns" class="form-row" style="display: none;">
+                    <div class="form-group">
+                        <label for="expected-return">Expected Return (%)</label>
+                        <input type="number" id="expected-return" name="expectedReturn" min="0" max="20" step="0.1" value="7.0">
+                    </div>
+                    <div class="form-group">
+                        <label for="volatility">Volatility (Std Dev %)</label>
+                        <input type="number" id="volatility" name="volatility" min="0" max="50" step="0.1" value="15.0">
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- Section 2: Accounts -->
+        <section id="accounts-section" class="card">
+            <div class="section-header">
+                <h2>Your Accounts</h2>
+                <button id="add-account-btn" class="btn btn-secondary">+ Add Account</button>
+            </div>
+            <div id="accounts-list" class="cards-list">
+                <p class="empty-state">No accounts added yet. Click "Add Account" to get started.</p>
+            </div>
+        </section>
+
+        <!-- Section 3: Contribution Scenarios -->
+        <section id="scenarios-section" class="card">
+            <div class="section-header">
+                <h2>Contribution Timeline</h2>
+                <button id="add-scenario-btn" class="btn btn-secondary">+ Add Change</button>
+            </div>
+            <p class="section-description">Schedule changes to your contributions over time (e.g., stop 401k contributions in 3 years)</p>
+            <div id="scenarios-list" class="cards-list">
+                <p class="empty-state">No timeline changes scheduled.</p>
+            </div>
+        </section>
+
+        <!-- Section 4: Social Security -->
+        <section id="social-security" class="card">
+            <div class="section-header">
+                <h2>Social Security</h2>
+                <label class="toggle-label">
+                    <input type="checkbox" id="ss-enabled">
+                    <span>Include Social Security</span>
+                </label>
+            </div>
+            <form id="ss-form" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ss-start-age">Start Age</label>
+                        <input type="number" id="ss-start-age" name="ssStartAge" min="62" max="70" value="67">
+                    </div>
+                    <div class="form-group">
+                        <label for="ss-monthly-benefit">Monthly Benefit Estimate</label>
+                        <input type="number" id="ss-monthly-benefit" name="ssMonthlyBenefit" min="0" step="100" value="2500">
+                        <small>Check <a href="https://www.ssa.gov/myaccount/" target="_blank">ssa.gov</a> for your estimate</small>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- Section 5: Scenario Management -->
+        <section id="scenario-management" class="card">
+            <div class="section-header">
+                <h2>Scenarios</h2>
+                <button id="save-scenario-btn" class="btn btn-secondary">Save Current Timeline as Scenario</button>
+            </div>
+            <p class="section-description">Save different contribution timeline configurations to compare side-by-side</p>
+            <div id="saved-scenarios-list" class="cards-list">
+                <p class="empty-state">No scenarios saved. Create a contribution timeline above and save it as a scenario.</p>
+            </div>
+            <div id="scenario-comparison-controls" style="display: none; margin-top: 1rem;">
+                <button id="compare-scenarios-btn" class="btn btn-primary">Compare Selected Scenarios</button>
+                <button id="clear-comparison-btn" class="btn btn-secondary">Clear Selection</button>
+            </div>
+        </section>
+
+        <!-- Section 6: Simulation Controls -->
+        <section id="simulation-controls" class="card">
+            <h2>Simulation Settings</h2>
+            <form id="sim-settings">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="num-simulations">Number of Simulations</label>
+                        <input type="number" id="num-simulations" name="numSimulations" min="1000" max="100000" step="1000" value="10000">
+                        <small>Higher numbers are more accurate but slower</small>
+                    </div>
+                </div>
+            </form>
+            <button id="run-simulation-btn" class="btn btn-primary btn-large">Run Simulation</button>
+            <div id="simulation-loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Running <span id="loading-progress">0</span> simulations...</p>
+            </div>
+        </section>
+
+        <!-- Section 6: Results -->
+        <section id="results-section" class="card" style="display: none;">
+            <h2>Projection Results</h2>
+            <p class="results-note">All values shown in today's dollars (adjusted for inflation)</p>
+
+            <div id="results-summary" class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-label">10th Percentile</div>
+                    <div class="summary-value" id="result-p10">$0</div>
+                    <div class="summary-sublabel">Pessimistic</div>
+                </div>
+                <div class="summary-card highlight">
+                    <div class="summary-label">Median (50th)</div>
+                    <div class="summary-value" id="result-p50">$0</div>
+                    <div class="summary-sublabel">Expected</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">90th Percentile</div>
+                    <div class="summary-value" id="result-p90">$0</div>
+                    <div class="summary-sublabel">Optimistic</div>
+                </div>
+            </div>
+
+            <div id="results-timeseries-container">
+                <h3>Net Worth Growth Over Time</h3>
+                <canvas id="results-timeseries-chart"></canvas>
+            </div>
+
+            <div id="results-chart-container">
+                <h3>Distribution of Outcomes at Retirement</h3>
+                <canvas id="results-chart"></canvas>
+            </div>
+
+            <div id="results-details">
+                <h3>Account Breakdown (at Median Outcome)</h3>
+                <table id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Account</th>
+                            <th>Current Balance</th>
+                            <th>Projected Balance</th>
+                            <th>Growth</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-table-body">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p class="disclaimer">
+                <strong>Disclaimer:</strong> This calculator provides educational projections based on assumptions and historical data.
+                Actual investment returns will vary. Past performance does not guarantee future results.
+                Consult a financial advisor for personalized advice.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <div id="account-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="account-modal-title">Add Account</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="account-form">
+                <div class="form-group">
+                    <label for="account-name">Account Name</label>
+                    <input type="text" id="account-name" name="name" placeholder="e.g., Vanguard 401k" required>
+                </div>
+                <div class="form-group">
+                    <label for="account-type">Account Type</label>
+                    <select id="account-type" name="type" required>
+                        <option value="401k">401(k)</option>
+                        <option value="traditional_ira">Traditional IRA</option>
+                        <option value="roth_ira">Roth IRA</option>
+                        <option value="hsa">HSA (Health Savings Account)</option>
+                        <option value="esop">ESOP (Employee Stock Ownership)</option>
+                        <option value="taxable">Taxable Brokerage</option>
+                    </select>
+                </div>
+                <div class="form-group" id="tax-treatment-group">
+                    <label for="account-tax-treatment">Tax Treatment</label>
+                    <select id="account-tax-treatment" name="taxTreatment" required>
+                        <option value="pre_tax">Pre-Tax (Traditional)</option>
+                        <option value="post_tax">Post-Tax (Roth)</option>
+                    </select>
+                    <small>Pre-tax: pay taxes when you withdraw. Post-tax: already taxed, grows tax-free.</small>
+                </div>
+                <div class="form-group">
+                    <label for="account-balance">Current Balance</label>
+                    <input type="number" id="account-balance" name="currentBalance" min="0" step="100" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="account-contribution">Annual Contribution</label>
+                    <input type="number" id="account-contribution" name="annualContribution" min="0" step="100" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="account-has-match" name="hasMatch">
+                        <span>Employer Match (401k only)</span>
+                    </label>
+                </div>
+                <div id="employer-match-fields" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="match-rate">Match Rate (%)</label>
+                            <input type="number" id="match-rate" name="matchRate" min="0" max="100" step="1" value="50">
+                            <small>e.g., 50 for "50% match"</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="match-cap">Up to % of Salary</label>
+                            <input type="number" id="match-cap" name="matchCap" min="0" max="100" step="1" value="6">
+                            <small>e.g., 6 for "up to 6% of salary"</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="account-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="scenario-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="scenario-modal-title">Add Contribution Change</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="scenario-form">
+                <div class="form-group">
+                    <label for="scenario-account">Account</label>
+                    <select id="scenario-account" name="accountId" required>
+                        <option value="">Select an account...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="scenario-year">Years from Now</label>
+                    <input type="number" id="scenario-year" name="yearFromNow" min="1" max="50" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="scenario-contribution">New Annual Contribution</label>
+                    <input type="number" id="scenario-contribution" name="newContribution" min="0" step="100" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="scenario-description">Description</label>
+                    <input type="text" id="scenario-description" name="description" placeholder="e.g., Stop 401k contributions" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="scenario-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Change</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="save-scenario-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Save Scenario</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="save-scenario-form">
+                <div class="form-group">
+                    <label for="save-scenario-name">Scenario Name</label>
+                    <input type="text" id="save-scenario-name" name="name" placeholder="e.g., Baseline, Early Retirement, Aggressive Savings" required>
+                </div>
+                <div class="form-group">
+                    <label for="save-scenario-desc">Description (optional)</label>
+                    <input type="text" id="save-scenario-desc" name="description" placeholder="Briefly describe this scenario">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="save-scenario-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Scenario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Application Scripts -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
