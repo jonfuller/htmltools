@@ -9,6 +9,9 @@ Thumbs.db
 *.swo
 *~
 
+# Claude Code
+.claude/
+
 # Logs
 *.log
 
