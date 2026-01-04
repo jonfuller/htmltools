@@ -44,6 +44,26 @@ class RetirementCalculator {
      * Initialize event listeners
      */
     initEventListeners() {
+        // How it works link
+        document.getElementById('how-it-works-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.openFlowchartModal();
+        });
+
+        // Flowchart modal close button
+        const flowchartModal = document.getElementById('flowchart-modal');
+        const flowchartCloseBtn = flowchartModal.querySelector('.modal-close');
+        flowchartCloseBtn.addEventListener('click', () => {
+            this.closeFlowchartModal();
+        });
+
+        // Close flowchart modal when clicking outside
+        flowchartModal.addEventListener('click', (e) => {
+            if (e.target.id === 'flowchart-modal') {
+                this.closeFlowchartModal();
+            }
+        });
+
         // Export/Import buttons
         document.getElementById('export-btn').addEventListener('click', () => {
             this.exportConfiguration();
@@ -96,6 +116,22 @@ class RetirementCalculator {
         runButton.addEventListener('click', () => {
             this.runSimulation();
         });
+    }
+
+    /**
+     * Open the flowchart modal
+     */
+    openFlowchartModal() {
+        const modal = document.getElementById('flowchart-modal');
+        modal.classList.add('active');
+    }
+
+    /**
+     * Close the flowchart modal
+     */
+    closeFlowchartModal() {
+        const modal = document.getElementById('flowchart-modal');
+        modal.classList.remove('active');
     }
 
     /**
