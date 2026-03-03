@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "HealthNerd.Wasm",
   "resources": {
-    "hash": "sha256-5bqBeW6NMCkgMAwssJ4PLnhgL114Z1C/COTxipoJNbE=",
+    "hash": "sha256-50+OH/SDO3kTOxzpBULIio8oYv0gH3ELfhxnHP0TKUQ=",
     "jsModuleNative": {
       "dotnet.native.js": "sha256-4g0GzvOXSwZvTLca4PrWJkoeltz+V9IF/hEFDcnVros="
     },
@@ -224,7 +224,7 @@
       "mscorlib.wasm": "sha256-OWQk7msdg0kG9vfJqVNUrPJ8JkyUipH2afbnYJLsKjk=",
       "netstandard.wasm": "sha256-+Ya7AWY6kwjwbQw9fHax9L8Qnn+UZKQF05aZE4ZOXiY=",
       "System.Private.CoreLib.wasm": "sha256-ouVBjy2oz9hC308fAFLns0mvmtyaeUDXt3C5DAk1muc=",
-      "HealthNerd.Wasm.wasm": "sha256-nJRmpcLs1wNa9fDVCvTR8AUF1EYaR1NhlIhVSAKR6b0="
+      "HealthNerd.Wasm.wasm": "sha256-48H2KBwbUDzCa29DbKKsI2+USO0gJ6CnN8s8XfQuPk8="
     }
   },
   "cacheBootResources": true,
