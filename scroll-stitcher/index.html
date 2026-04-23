@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scroll Stitcher</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d0d0d;
+      color: #d4d4d4;
+      min-height: 100vh;
+      padding: 2.5rem 1rem 4rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .header { text-align: center; }
+    .header h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; color: #f0f0f0; }
+    .header p  { margin-top: 0.4rem; font-size: 0.875rem; color: #5a5a5a; max-width: 420px; }
+
+    .panel {
+      background: #181818;
+      border: 1px solid #242424;
+      border-radius: 14px;
+      padding: 1.4rem;
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+
+    /* ── drop zone ─────────────────────────────────────────────────── */
+    .drop-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      border: 2px dashed #2c2c2c;
+      border-radius: 10px;
+      padding: 2rem 1rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: #404040; background: #1e1e1e; }
+    .drop-zone.loaded { border-style: solid; border-color: #3b6fe8; }
+    .dz-icon  { font-size: 2rem; line-height: 1; }
+    .dz-title { font-size: 0.9rem; font-weight: 500; color: #b0b0b0; }
+    .dz-sub   { font-size: 0.75rem; color: #484848; }
+    input[type="file"] { display: none; }
+
+    /* ── controls ──────────────────────────────────────────────────── */
+    .controls { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .field label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #505050;
+    }
+    select, input[type="number"] {
+      background: #1f1f1f;
+      border: 1px solid #2c2c2c;
+      color: #d4d4d4;
+      padding: 0.45rem 0.65rem;
+      border-radius: 7px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      outline: none;
+    }
+    select:focus, input[type="number"]:focus { border-color: #3b6fe8; }
+
+    /* ── buttons ───────────────────────────────────────────────────── */
+    .btn {
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.1rem;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+    .btn-primary { background: #3b6fe8; color: #fff; width: 100%; padding: 0.7rem; }
+    .btn-primary:hover { background: #2d5dd4; }
+    .btn-secondary {
+      background: #1f1f1f;
+      color: #c0c0c0;
+      border: 1px solid #2c2c2c;
+    }
+    .btn-secondary:hover { background: #272727; }
+
+    /* ── progress ──────────────────────────────────────────────────── */
+    .progress-track {
+      height: 3px;
+      background: #222;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #3b6fe8;
+      width: 0;
+      transition: width 0.2s ease;
+    }
+    .status { font-size: 0.8rem; color: #4a4a4a; min-height: 1.1em; }
+
+    /* ── output ────────────────────────────────────────────────────── */
+    .output-panel {
+      display: none;
+      flex-direction: column;
+      gap: 0.75rem;
+      width: 100%;
+      max-width: 520px;
+    }
+    .output-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-info { font-size: 0.8rem; color: #4a4a4a; }
+    #outputCanvas {
+      display: block;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #222;
+    }
+
+    a.back { font-size: 0.8rem; color: #3b6fe8; text-decoration: none; align-self: flex-start; }
+    a.back:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<a class="back" href="../">← All Tools</a>
+
+<div class="header">
+  <h1>Scroll Stitcher</h1>
+  <p>Upload a screen recording of a mobile app scrolling in one direction to produce a single full-length screenshot.</p>
+</div>
+
+<div class="panel">
+  <label class="drop-zone" id="dropZone" for="fileInput">
+    <div class="dz-icon" id="dzIcon">📱</div>
+    <div class="dz-title" id="dzTitle">Drop video here or click to browse</div>
+    <div class="dz-sub"  id="dzSub">MP4 · MOV · WebM</div>
+    <input type="file" id="fileInput" accept="video/*">
+  </label>
+
+  <div class="controls">
+    <div class="field">
+      <label for="direction">Scroll direction</label>
+      <select id="direction">
+        <option value="down">Down ↓  (most common)</option>
+        <option value="up">Up ↑</option>
+        <option value="right">Right →</option>
+        <option value="left">Left ←</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="fps">Sample rate</label>
+      <input type="number" id="fps" value="8" min="1" max="30" style="width:75px"> fps
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="processBtn" disabled>Process Video</button>
+
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="status" id="statusMsg">No video loaded</div>
+</div>
+
+<div class="output-panel" id="outputPanel">
+  <div class="output-header">
+    <span class="output-info" id="outputInfo"></span>
+    <button class="btn btn-secondary" id="downloadBtn">Download PNG</button>
+  </div>
+  <canvas id="outputCanvas"></canvas>
+</div>
+
+<!-- Hidden working elements -->
+<video  id="video"       style="display:none" muted playsinline></video>
+<canvas id="workCanvas"  style="display:none"></canvas>
+<canvas id="smallCanvas" style="display:none"></canvas>
+
+<script>
+(() => {
+  const video       = document.getElementById('video');
+  const dropZone    = document.getElementById('dropZone');
+  const fileInput   = document.getElementById('fileInput');
+  const processBtn  = document.getElementById('processBtn');
+  const progressFill = document.getElementById('progressFill');
+  const statusMsg   = document.getElementById('statusMsg');
+  const outputPanel = document.getElementById('outputPanel');
+  const outputCanvas = document.getElementById('outputCanvas');
+  const outputInfo  = document.getElementById('outputInfo');
+
+  // ── file loading ──────────────────────────────────────────────────────────
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) loadFile(f);
+  });
+  fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+  function loadFile(file) {
+    video.src = URL.createObjectURL(file);
+    video.addEventListener('loadedmetadata', () => {
+      processBtn.disabled = false;
+      document.getElementById('dzIcon').textContent  = '✓';
+      document.getElementById('dzIcon').style.color  = '#3b6fe8';
+      document.getElementById('dzTitle').textContent = file.name;
+      document.getElementById('dzSub').textContent   =
+        `${video.videoWidth}×${video.videoHeight} · ${video.duration.toFixed(1)}s`;
+      dropZone.classList.add('loaded');
+      setStatus('Ready');
+    }, { once: true });
+  }
+
+  // ── controls ──────────────────────────────────────────────────────────────
+
+  processBtn.addEventListener('click', () => {
+    processVideo().catch(err => {
+      setStatus(`Error: ${err.message}`);
+      processBtn.disabled = false;
+      console.error(err);
+    });
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.download = 'stitched.png';
+    a.href = outputCanvas.toDataURL('image/png');
+    a.click();
+  });
+
+  function setStatus(msg, pct) {
+    statusMsg.textContent = msg;
+    if (pct !== undefined) progressFill.style.width = `${pct}%`;
+  }
+
+  function seekTo(t) {
+    return new Promise(resolve => {
+      video.currentTime = t;
+      video.addEventListener('seeked', resolve, { once: true });
+    });
+  }
+
+  // ── main processing ───────────────────────────────────────────────────────
+
+  async function processVideo() {
+    processBtn.disabled = true;
+    outputPanel.style.display = 'none';
+    setStatus('Starting…', 0);
+
+    const fps       = Math.max(1, Math.min(30, +document.getElementById('fps').value || 8));
+    const direction = document.getElementById('direction').value;
+    const W = video.videoWidth;
+    const H = video.videoHeight;
+    const vertical = direction === 'down' || direction === 'up';
+    const inverted = direction === 'up'   || direction === 'left';
+
+    // Full-resolution work canvas
+    const wc = document.getElementById('workCanvas');
+    wc.width = W; wc.height = H;
+    const wCtx = wc.getContext('2d', { willReadFrequently: true });
+
+    // Small canvas for correlation — max 300px on the scroll axis
+    const longAxis = vertical ? H : W;
+    const scale = Math.min(1, 300 / longAxis);
+    const SW = Math.round(W * scale);
+    const SH = Math.round(H * scale);
+    const sc = document.getElementById('smallCanvas');
+    sc.width = SW; sc.height = SH;
+    const sCtx = sc.getContext('2d', { willReadFrequently: true });
+
+    // Build list of frame timestamps
+    const times = [];
+    for (let t = 0; t < video.duration - 1e-3; t += 1 / fps) times.push(t);
+
+    // ── Pass 1: compute scroll deltas from small frames ───────────────────
+
+    const deltas = [];
+    let prevGray = null;
+
+    for (let i = 0; i < times.length; i++) {
+      await seekTo(times[i]);
+      sCtx.drawImage(video, 0, 0, SW, SH);
+      const gray = toGray(sCtx.getImageData(0, 0, SW, SH).data, SW * SH);
+
+      if (prevGray !== null) {
+        const d = correlate(prevGray, gray, SW, SH, vertical, inverted);
+        deltas.push(Math.round(d / scale));
+      }
+      prevGray = gray;
+      setStatus(`Pass 1/2: analysing frame ${i + 1} / ${times.length}`,
+                (i + 1) / times.length * 45);
+    }
+
+    const totalScroll = deltas.reduce((a, b) => a + b, 0);
+
+    if (totalScroll === 0) {
+      setStatus('No scroll movement detected. Check direction setting or try a lower sample rate.', 0);
+      processBtn.disabled = false;
+      return;
+    }
+
+    // ── Create output canvas ──────────────────────────────────────────────
+
+    const outW = vertical ? W : W + totalScroll;
+    const outH = vertical ? H + totalScroll : H;
+    outputCanvas.width  = outW;
+    outputCanvas.height = outH;
+    const oCtx = outputCanvas.getContext('2d');
+
+    // ── Pass 2: stitch full-resolution strips ─────────────────────────────
+
+    let cumScroll = 0;
+
+    for (let i = 0; i < times.length; i++) {
+      await seekTo(times[i]);
+      wCtx.drawImage(video, 0, 0, W, H);
+      const frame = wCtx.getImageData(0, 0, W, H);
+
+      if (i === 0) {
+        // First frame: place at its canonical origin
+        oCtx.putImageData(frame,
+          (!vertical && inverted) ? totalScroll : 0,
+          ( vertical && inverted) ? totalScroll : 0);
+      } else {
+        const delta = deltas[i - 1];
+        if (delta > 0) drawStrip(oCtx, frame, W, H, delta, vertical, inverted, cumScroll, totalScroll);
+        cumScroll += delta;
+      }
+
+      setStatus(`Pass 2/2: stitching frame ${i + 1} / ${times.length}`,
+                45 + (i + 1) / times.length * 54);
+    }
+
+    setStatus(`Done — ${outW} × ${outH} px`, 100);
+    outputInfo.textContent = `${outW} × ${outH} px`;
+    outputPanel.style.display = 'flex';
+    processBtn.disabled = false;
+  }
+
+  // ── stitching helper ──────────────────────────────────────────────────────
+  //
+  // putImageData(imgData, dx, dy, dirtyX, dirtyY, dirtyW, dirtyH)
+  // Pixels from (dirtyX, dirtyY) in imgData land at (dx+dirtyX, dy+dirtyY) in canvas.
+  //
+  function drawStrip(ctx, frame, W, H, delta, vertical, inverted, cumScroll, totalScroll) {
+    if (vertical) {
+      if (!inverted) {
+        // Scroll down: new rows are the bottom `delta` rows of this frame.
+        // They belong at y = H + cumScroll in output.
+        // dy = (H + cumScroll) - (H - delta) = cumScroll + delta
+        ctx.putImageData(frame, 0, cumScroll + delta, 0, H - delta, W, delta);
+      } else {
+        // Scroll up: new rows are the top `delta` rows of this frame.
+        // They belong at y = totalScroll - cumScroll - delta in output.
+        ctx.putImageData(frame, 0, totalScroll - cumScroll - delta, 0, 0, W, delta);
+      }
+    } else {
+      if (!inverted) {
+        // Scroll right: new columns are the rightmost `delta` columns.
+        // dx = (W + cumScroll) - (W - delta) = cumScroll + delta
+        ctx.putImageData(frame, cumScroll + delta, 0, W - delta, 0, delta, H);
+      } else {
+        // Scroll left: new columns are the leftmost `delta` columns.
+        ctx.putImageData(frame, totalScroll - cumScroll - delta, 0, 0, 0, delta, H);
+      }
+    }
+  }
+
+  // ── correlation ───────────────────────────────────────────────────────────
+
+  // Convert RGBA pixel data to a Float32Array of grayscale values.
+  function toGray(data, n) {
+    const g = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const p = i * 4;
+      g[i] = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+    }
+    return g;
+  }
+
+  // Find the scroll offset (in small-frame pixels) that best aligns frameA with frameB.
+  //
+  // Strategy: for each candidate delta d, compute the mean squared difference between
+  // the overlapping region of frameA and frameB assuming frameB is shifted by d pixels.
+  // We sample sparsely along both axes for speed.
+  //
+  function correlate(gA, gB, W, H, vertical, inverted) {
+    const dimL     = vertical ? H : W;  // axis we scroll along
+    const maxDelta = Math.min(Math.floor(dimL * 0.9), dimL - 10);
+
+    // Sparse sampling: ~50 positions along scroll axis, ~12 along the other axis
+    const sL = Math.max(1, Math.floor(maxDelta / 50));
+    const sS = Math.max(1, Math.floor((vertical ? W : H) / 12));
+
+    let bestD   = 0;
+    let bestErr = Infinity;
+
+    for (let d = 0; d <= maxDelta; d++) {
+      const overlap = dimL - d;
+      if (overlap < 10) break;
+
+      let sum = 0, cnt = 0;
+
+      if (vertical) {
+        for (let y = 0; y < overlap; y += sL) {
+          for (let x = 0; x < W; x += sS) {
+            // Scroll down (normal): bottom of A matches top of B → A[y+d] ≈ B[y]
+            // Scroll up (inverted): top of A matches bottom of B → A[y] ≈ B[y+d]
+            const a = inverted ? gA[y * W + x]       : gA[(y + d) * W + x];
+            const b = inverted ? gB[(y + d) * W + x] : gB[y * W + x];
+            const e = a - b;
+            sum += e * e;
+            cnt++;
+          }
+        }
+      } else {
+        for (let y = 0; y < H; y += sS) {
+          for (let x = 0; x < overlap; x += sL) {
+            const a = inverted ? gA[y * W + x]       : gA[y * W + (x + d)];
+            const b = inverted ? gB[y * W + (x + d)] : gB[y * W + x];
+            const e = a - b;
+            sum += e * e;
+            cnt++;
+          }
+        }
+      }
+
+      const err = cnt > 0 ? sum / cnt : Infinity;
+      if (err < bestErr) { bestErr = err; bestD = d; }
+    }
+
+    return bestD;
+  }
+})();
+</script>
+</body>
+</html>
