@@ -252,8 +252,11 @@
 
   function seekTo(t) {
     return new Promise(resolve => {
-      video.currentTime = t;
+      // If already at this position, resolve immediately — seeked won't fire.
+      if (Math.abs(video.currentTime - t) < 0.001) { resolve(); return; }
+      // Add listener before setting currentTime to avoid race on fast seeks.
       video.addEventListener('seeked', resolve, { once: true });
+      video.currentTime = t;
     });
   }
 
