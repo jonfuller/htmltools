@@ -180,7 +180,7 @@
 <div class="output-panel" id="outputPanel">
   <div class="output-header">
     <span class="output-info" id="outputInfo"></span>
-    <button class="btn btn-secondary" id="downloadBtn">Download PNG</button>
+    <button class="btn btn-secondary" id="downloadBtn">Open Full Image</button>
   </div>
   <canvas id="outputCanvas"></canvas>
 </div>
@@ -239,10 +239,9 @@
   });
 
   document.getElementById('downloadBtn').addEventListener('click', () => {
-    const a = document.createElement('a');
-    a.download = 'stitched.png';
-    a.href = outputCanvas.toDataURL('image/png');
-    a.click();
+    // iOS Safari blocks programmatic anchor clicks with data URLs.
+    // Opening in a new tab lets the user long-press to save.
+    window.open(outputCanvas.toDataURL('image/png'), '_blank');
   });
 
   function setStatus(msg, pct) {
@@ -279,9 +278,9 @@
     wc.width = W; wc.height = H;
     const wCtx = wc.getContext('2d', { willReadFrequently: true });
 
-    // Small canvas for correlation — max 300px on the scroll axis
+    // Small canvas for correlation — max 400px on the scroll axis
     const longAxis = vertical ? H : W;
-    const scale = Math.min(1, 300 / longAxis);
+    const scale = Math.min(1, 400 / longAxis);
     const SW = Math.round(W * scale);
     const SH = Math.round(H * scale);
     const sc = document.getElementById('smallCanvas');
@@ -421,8 +420,14 @@
 
       let sum = 0, cnt = 0;
 
+      // Skip the outer 15% on the scroll axis — status bars, nav bars, and other
+      // fixed chrome that doesn't scroll bias the correlation toward delta=0.
+      const margin = Math.floor(overlap * 0.15);
+      const yStart = margin;
+      const yEnd   = overlap - margin;
+
       if (vertical) {
-        for (let y = 0; y < overlap; y += sL) {
+        for (let y = yStart; y < yEnd; y += sL) {
           for (let x = 0; x < W; x += sS) {
             // Scroll down (normal): bottom of A matches top of B → A[y+d] ≈ B[y]
             // Scroll up (inverted): top of A matches bottom of B → A[y] ≈ B[y+d]
@@ -435,7 +440,7 @@
         }
       } else {
         for (let y = 0; y < H; y += sS) {
-          for (let x = 0; x < overlap; x += sL) {
+          for (let x = yStart; x < yEnd; x += sL) {
             const a = inverted ? gA[y * W + x]       : gA[y * W + (x + d)];
             const b = inverted ? gB[y * W + (x + d)] : gB[y * W + x];
             const e = a - b;
